@@ -2,7 +2,7 @@ from .models import FunctionDef
 from typing import List
 
 
-def build_prompt(functions: List[FunctionDef], user_prompt: str) -> str:
+def build_prompt(functions: List[FunctionDef]) -> str:
 
     instructions = [
         "You are a function-calling assistant.",
@@ -13,9 +13,10 @@ def build_prompt(functions: List[FunctionDef], user_prompt: str) -> str:
     ]
     for func in functions:
         params = ", ".join(
-            f"{name}: {param.type}" for name, param in func.parameters.items()
+            f"{name}: {param.type}"
+            for name, param in func.parameters.items()
         )
         instructions.append(
             f"- {func.name}({params}): {func.description}"
         )
-    return "\n".join(instructions) + f"\nUser prompt: {user_prompt}"
+    return "\n".join(instructions)
