@@ -1,48 +1,171 @@
-from typing import List, Dict, Any
-import json
+"""Constrained decoding: force known JSON structure, let the model choose
+only between reachable options at each step."""
+
+from typing import List, Dict, Any, Tuple
 from llm_sdk import Small_LLM_Model
-from .models import FunctionCall, FunctionDef
+from .models import FunctionDef, FunctionParam
 
 
-def load_vocab(model: Small_LLM_Model) -> Dict[str, Any]:
-    """Load the vocabulary of the model."""
-    vocab_path = model.get_path_to_vocab_file()
-    with open(vocab_path, 'r', encoding='utf-8') as f:
-        raw = json.load(f)
-    return raw
+def load_vocab(model: Small_LLM_Model) -> Dict[str, int]:
+    """Load token string -> token id mapping from the model's vocab file."""
+    import json
+    with open(model.get_path_to_vocab_file(), encoding="utf-8") as f:
+        return json.load(f)
 
 
-def get_valid_token_ids(vocab: Dict[str, Any]) -> set[int]:
-    """Get the list of valid token IDs from the vocabulary."""
-    accepted_tks = set(
-        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        '0123456789*_-+.,:/\'?!()[]{}"ĠĊ'
-    )
-    valid = set()
-    for token, token_id in vocab.items():
-        if token and all(char in accepted_tks for char in token):
-            valid.add(token_id)
-    return valid
+def build_id_to_token(vocab: Dict[str, int]) -> Dict[int, str]:
+    """Reverse vocab: token id -> normalized token string."""
+    return {tid: tok.replace("Ġ", " ").replace("Ċ", "\n") for tok, tid in vocab.items()}
 
 
-def get_next_valid_token(logits: List[float], valid_ids: set[int]) -> int:
-    """Get the next valid token ID based on the logits and valid IDs."""
-    return max(valid_ids, key=lambda tid: logits[tid])
+def encode_text(model: Small_LLM_Model, text: str) -> List[int]:
+    """Encode literal text to a flat list of token ids."""
+    ids = model.encode(text)
+    return ids[0].tolist() if hasattr(ids, "tolist") else list(ids)
 
 
-def extract_valid_json(text: str) -> str | None:
-    """Extract valid JSON from the given text."""
-    start = text.find('{')
-    if start == -1:
-        return None
+def _pick(model: Small_LLM_Model, ids: List[int], valid: set) -> int:
+    """Return the highest-logit token id among `valid`."""
+    if not valid:
+        raise RuntimeError("No valid token ids at this generation step.")
+    logits = model.get_logits_from_input_ids(ids)
+    return max(valid, key=lambda tid: logits[tid])
 
-    count_braces = 0
-    for i in range(start, len(text)):
-        if text[i] == '{':
-            count_braces += 1
-        elif text[i] == '}':
-            count_braces -= 1
 
-        if count_braces == 0:
-            return text[start:i + 1]
-    return None
+def _is_repeating(content: List[int], window: int = 6) -> bool:
+    """Detect a short cycle repeating in the tail of generated tokens
+    (guards against greedy-decoding loops on repetitive content)."""
+    if len(content) < window * 2:
+        return False
+    return content[-window:] == content[-2 * window:-window]
+
+
+def generate_constrained_choice(
+    model: Small_LLM_Model,
+    id_to_token: Dict[int, str],
+    ids: List[int],
+    options: List[str],
+    max_steps: int = 30,
+) -> Tuple[str, List[int]]:
+    """Force generation to exactly match one of `options`, token by token."""
+    matched = ""
+    for _ in range(max_steps):
+        valid = {
+            tid for tid, tok in id_to_token.items()
+            if tok and any(o.startswith(matched + tok) for o in options)
+        }
+        tid = _pick(model, ids, valid)
+        ids = ids + [tid]
+        matched += id_to_token[tid]
+        if matched in options:
+            return matched, ids
+    raise RuntimeError(f"Could not resolve choice among {options!r}")
+
+
+def generate_constrained_text(
+    model: Small_LLM_Model,
+    id_to_token: Dict[int, str],
+    ids: List[int],
+    char_ok,
+    stop_chars: set,
+    quoted: bool,
+    max_len: int = 100,
+) -> Tuple[str, List[int]]:
+    """Generate free-form content: model picks tokens matching `char_ok`
+    until a token from `stop_chars` becomes the best choice, or a token
+    containing an embedded quote/stop marker signals the boundary."""
+    if quoted:
+        ids = ids + encode_text(model, '"')
+    content: List[int] = []
+    for _ in range(max_len):
+        valid = {
+            tid for tid, tok in id_to_token.items()
+            if (tok and char_ok(tok)) or tok in stop_chars
+            or (quoted and '"' in tok)
+        }
+        tid = _pick(model, ids + content, valid)
+        tok = id_to_token[tid]
+
+        if quoted and '"' in tok:
+            # token contains the closing quote, possibly fused with content
+            before = tok.split('"', 1)[0]
+            if before:
+                content.append(tid)  # keep token, text extracted at decode time
+            break
+        if tok in stop_chars:
+            break
+
+        content.append(tid)
+        if _is_repeating(content):
+            break
+
+    text = model.decode(content) if content else ""
+    text = text.split('"', 1)[0] if quoted else text  # strip fused quote text
+    if quoted:
+        ids = ids + content + encode_text(model, '"')
+    else:
+        ids = ids + content
+    return text, ids
+
+
+def generate_value(
+    model: Small_LLM_Model,
+    id_to_token: Dict[int, str],
+    ids: List[int],
+    param: FunctionParam,
+) -> Tuple[Any, List[int]]:
+    """Generate a single typed parameter value."""
+    if param.type == "boolean":
+        text, ids = generate_constrained_choice(model, id_to_token, ids, ["true", "false"])
+        return text == "true", ids
+
+    if param.type in ("number", "integer"):
+        digits = set("0123456789.-")
+        text, ids = generate_constrained_text(
+            model, id_to_token, ids,
+            char_ok=lambda t: all(c in digits for c in t),
+            stop_chars={",", "}", " ", "\n"}, quoted=False,
+        )
+        try:
+            value = float(text) if "." in text else int(text)
+        except ValueError:
+            raise RuntimeError(f"Bad number generated: {text!r}")
+        return (int(value) if param.type == "integer" else value), ids
+
+    if param.type == "string":
+        text, ids = generate_constrained_text(
+            model, id_to_token, ids,
+            char_ok=lambda t: '"' not in t,
+            stop_chars=set(), quoted=True,
+        )
+        return text, ids
+
+    raise ValueError(f"Unsupported parameter type: {param.type}")
+
+
+def generate_function_call(
+    model: Small_LLM_Model,
+    id_to_token: Dict[int, str],
+    functions: List[FunctionDef],
+    prompt_ids: List[int],
+) -> Dict[str, Any]:
+    """Run phase-aware constrained generation: force all known structure,
+    constrain the model only on the function name and each param value."""
+    ids = prompt_ids + encode_text(model, '{"name": "')
+    name, ids = generate_constrained_choice(model, id_to_token, ids, [f.name for f in functions])
+    chosen = next((f for f in functions if f.name == name), None)
+    if chosen is None:
+        raise RuntimeError(f"Generated name {name!r} matches no known function.")
+
+    ids = ids + encode_text(model, '", "parameters": {')
+    parameters: Dict[str, Any] = {}
+    items = list(chosen.parameters.items())
+    for i, (pname, pdef) in enumerate(items):
+        ids = ids + encode_text(model, f'"{pname}": ')
+        value, ids = generate_value(model, id_to_token, ids, pdef)
+        parameters[pname] = value
+        if i < len(items) - 1:
+            ids = ids + encode_text(model, ", ")
+    ids = ids + encode_text(model, "}}")
+
+    return {"name": name, "parameters": parameters}
