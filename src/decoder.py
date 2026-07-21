@@ -117,7 +117,7 @@ def generate_value(
             stop_chars={",", "}", " ", "\n"}, quoted=False,
         )
         try:
-            value = float(text) if "." in text else int(text)
+            value = float(text)
         except ValueError:
             raise RuntimeError(f"Bad number generated: {text!r}")
         return (int(value) if param.type == "integer" else value), ids
