@@ -32,14 +32,6 @@ def _pick(model: Small_LLM_Model, ids: List[int], valid: set) -> int:
     return max(valid, key=lambda tid: logits[tid])
 
 
-def _is_repeating(content: List[int], window: int = 6) -> bool:
-    """Detect a short cycle repeating in the tail of generated tokens
-    (guards against greedy-decoding loops on repetitive content)."""
-    if len(content) < window * 2:
-        return False
-    return content[-window:] == content[-2 * window:-window]
-
-
 def generate_constrained_choice(
     model: Small_LLM_Model,
     id_to_token: Dict[int, str],
@@ -96,8 +88,6 @@ def generate_constrained_text(
             break
 
         content.append(tid)
-        if _is_repeating(content):
-            break
 
     text = model.decode(content) if content else ""
     text = text.split('"', 1)[0] if quoted else text  # strip fused quote text
