@@ -156,6 +156,5 @@ def generate_function_call(
         parameters[pname] = value
         if i < len(items) - 1:
             ids = ids + encode_text(model, ", ")
-    ids = ids + encode_text(model, "}}")
 
     return {"name": name, "parameters": parameters}
