@@ -21,7 +21,7 @@ def build_id_to_token(vocab: Dict[str, int]) -> Dict[int, str]:
 def encode_text(model: Small_LLM_Model, text: str) -> List[int]:
     """Encode literal text to a flat list of token ids."""
     ids = model.encode(text)
-    return ids[0].tolist() if hasattr(ids, "tolist") else list(ids)
+    return ids[0].tolist()
 
 
 def _pick(model: Small_LLM_Model, ids: List[int], valid: set) -> int:

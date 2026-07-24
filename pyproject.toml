@@ -2,20 +2,28 @@
 name = "call-me-maybe"
 version = "0.0.1"
 description = "Introduction to function calling in LLM's"
+readme = "README.md"
 requires-python = ">=3.10"
-authors = [
-  {name="fandre-m", email="fandre-m@student.42porto.com"},
-]
+
 dependencies = [
     "llm-sdk",
-    "numpy>=2.2.6",
-    "pydantic>=2.13.4",
+    "numpy",
+    "pydantic",
+    "flake8",
+    "mypy",
 ]
-readme = "README.md"
 
 [tool.uv.workspace]
 members = [
     "llm_sdk",
+]
+
+[tool.mypy]
+files = ["src"]
+exclude = [
+  "llm_sdk/",
+  ".venv/",
+  ".cache/",
 ]
 
 [tool.uv.sources]
