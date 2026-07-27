@@ -15,7 +15,8 @@ def load_vocab(model: Small_LLM_Model) -> Dict[str, int]:
 
 def build_id_to_token(vocab: Dict[str, int]) -> Dict[int, str]:
     """Reverse vocab: token id -> normalized token string."""
-    return {tid: tok.replace("Ġ", " ").replace("Ċ", "\n") for tok, tid in vocab.items()}
+    return {tid: tok.replace("Ġ", " ").replace("Ċ", "\n")
+            for tok, tid in vocab.items()}
 
 
 def encode_text(model: Small_LLM_Model, text: str) -> List[int]:
@@ -82,7 +83,7 @@ def generate_constrained_text(
             # token contains the closing quote, possibly fused with content
             before = tok.split('"', 1)[0]
             if before:
-                content.append(tid)  # keep token, text extracted at decode time
+                content.append(tid)  # keep token
             break
         if tok in stop_chars:
             break
@@ -106,7 +107,9 @@ def generate_value(
 ) -> Tuple[Any, List[int]]:
     """Generate a single typed parameter value."""
     if param.type == "boolean":
-        text, ids = generate_constrained_choice(model, id_to_token, ids, ["true", "false"])
+        text, ids = generate_constrained_choice(
+            model, id_to_token, ids, ["true", "false"]
+        )
         return text == "true", ids
 
     if param.type in ("number", "integer"):
@@ -142,10 +145,14 @@ def generate_function_call(
     """Run phase-aware constrained generation: force all known structure,
     constrain the model only on the function name and each param value."""
     ids = prompt_ids + encode_text(model, '{"name": "')
-    name, ids = generate_constrained_choice(model, id_to_token, ids, [f.name for f in functions])
+    name, ids = generate_constrained_choice(
+        model, id_to_token, ids, [f.name for f in functions]
+    )
     chosen = next((f for f in functions if f.name == name), None)
     if chosen is None:
-        raise RuntimeError(f"Generated name {name!r} matches no known function.")
+        raise RuntimeError(
+            f"Generated name {name!r} matches no known function."
+        )
 
     ids = ids + encode_text(model, '", "parameters": {')
     parameters: Dict[str, Any] = {}

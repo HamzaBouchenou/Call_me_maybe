@@ -1,8 +1,9 @@
 import argparse
-from src.loader import load_functions_definition, load_prompts
+from src.loader import load_functions_definition, load_prompts, InputError
 from src.prompt_builder import build_prompt
 from llm_sdk import Small_LLM_Model
-from src.decoder import build_id_to_token, load_vocab, encode_text, generate_function_call
+from src.decoder import (build_id_to_token, load_vocab, encode_text,
+                         generate_function_call)
 import json
 import time
 import os
@@ -29,16 +30,12 @@ def build_parser():
 
 
 def run_pipeline(args: argparse.Namespace):
-    functions = load_functions_definition(args.functions_definition)
-    if not functions:
-        raise RuntimeError(
-            "No functions loaded."
-        )
-    prompts = load_prompts(args.input)
-    if not prompts:
-        raise RuntimeError(
-            "No prompts loaded."
-        )
+    try:
+        functions = load_functions_definition(args.functions_definition)
+        prompts = load_prompts(args.input)
+    except InputError as e:
+        print(f"Caught an Error: {e}")
+        return
 
     instructions = build_prompt(functions)
     print("Loading model...")
@@ -55,7 +52,8 @@ def run_pipeline(args: argparse.Namespace):
         full_prompt = f"{instructions}\nUser prompt: {prompt}\nAssistant: "
         prompt_ids = encode_text(model, full_prompt)
         try:
-            call = generate_function_call(model, id_to_token, functions, prompt_ids)
+            call = generate_function_call(
+                model, id_to_token, functions, prompt_ids)
             result = {"prompt": pt.prompt, **call}
         except Exception as e:
             print(f"Warning: failed on {pt.prompt!r}: {e}")
@@ -74,7 +72,7 @@ def run_pipeline(args: argparse.Namespace):
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
 
-    print(f"Wrote {len(results)} results to {args.output}") 
+    print(f"Wrote {len(results)} results to {args.output}")
 
 
 def main():
@@ -87,4 +85,4 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Unexpected error occurred: {e}")
