@@ -1,8 +1,11 @@
 [
   {
-    "prompt": "What is the sum of 2 and -33333333333-3333333?",
-    "name": null,
-    "parameters": {}
+    "prompt": "What is the sum of 2 and 333333333.33333333333333333333333333333?",
+    "name": "fn_add_numbers",
+    "parameters": {
+      "a": 2.0,
+      "b": 333333333.3333333
+    }
   },
   {
     "prompt": "What is the sum of 265 and 345?",

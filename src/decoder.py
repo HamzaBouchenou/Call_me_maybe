@@ -80,10 +80,9 @@ def generate_constrained_text(
         tok = id_to_token[tid]
 
         if quoted and '"' in tok:
-            # token contains the closing quote, possibly fused with content
             before = tok.split('"', 1)[0]
             if before:
-                content.append(tid)  # keep token
+                content.append(tid)
             break
         if tok in stop_chars:
             break
@@ -91,7 +90,7 @@ def generate_constrained_text(
         content.append(tid)
 
     text = model.decode(content) if content else ""
-    text = text.split('"', 1)[0] if quoted else text  # strip fused quote text
+    text = text.split('"', 1)[0] if quoted else text
     if quoted:
         ids = ids + content + encode_text(model, '"')
     else:
@@ -112,18 +111,27 @@ def generate_value(
         )
         return text == "true", ids
 
-    if param.type in ("number", "integer"):
-        digits = set("0123456789.-")
+    if param.type == "number":
         text, ids = generate_constrained_text(
             model, id_to_token, ids,
-            char_ok=lambda t: all(c in digits for c in t),
+            char_ok=lambda t: all(c in set("0123456789.-") for c in t),
             stop_chars={",", "}", " ", "\n"}, quoted=False,
         )
         try:
-            value = float(text)
+            return float(text), ids
         except ValueError:
-            raise RuntimeError(f"Bad number generated: {text!r}")
-        return (int(value) if param.type == "integer" else value), ids
+            return 0.0, ids
+
+    if param.type == "integer":
+        text, ids = generate_constrained_text(
+            model, id_to_token, ids,
+            char_ok=lambda t: all(c in set("0123456789-") for c in t),
+            stop_chars={",", "}", " ", "\n"}, quoted=False,
+        )
+        try:
+            return int(text), ids
+        except ValueError:
+            return 0, ids
 
     if param.type == "string":
         text, ids = generate_constrained_text(
