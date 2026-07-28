@@ -55,12 +55,12 @@ def run_pipeline(args: argparse.Namespace):
             call = generate_function_call(
                 model, id_to_token, functions, prompt_ids)
             result = {"prompt": pt.prompt, **call}
+            results.append(result)
+            print(f"{result}")
         except Exception as e:
-            print(f"Warning: failed on {pt.prompt!r}: {e}")
-            result = {"prompt": pt.prompt, "name": None, "parameters": {}}
+            print(f"failed on : {pt.prompt!r}: {e}")
 
-        results.append(result)
-        print(f"  {pt.prompt!r} -> {result}")
+
 
     elapsed = time.time() - start_time
     print(f"\nProcessed {len(prompts)} prompts in {elapsed:.2f}s ")

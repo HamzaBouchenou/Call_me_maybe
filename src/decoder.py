@@ -154,8 +154,9 @@ def generate_function_call(
     constrain the model only on the function name and each param value."""
     ids = prompt_ids + encode_text(model, '{"name": "')
     name, ids = generate_constrained_choice(
-        model, id_to_token, ids, [f.name for f in functions]
+        model, id_to_token, ids, [f'"{f.name}"' for f in functions]
     )
+    name = name.strip('"')
     chosen = next((f for f in functions if f.name == name), None)
     if chosen is None:
         raise RuntimeError(
