@@ -63,18 +63,23 @@ def run_pipeline(args: argparse.Namespace):
 
     elapsed = time.time() - start_time
     print(f"\nProcessed {len(prompts)} prompts in {elapsed:.2f}s ")
+    try:
+        output_dir = os.path.dirname(args.output)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
 
-    output_dir = os.path.dirname(args.output)
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
+        with open(args.output, "w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2)
 
-    with open(args.output, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2)
+    except PermissionError:
+        print("File does not have permission")
+        return
+    except TypeError:
+        print("Could not serialize results to JSON")
+        return
+   
 
-    print(f"Wrote {len(results)} results to {args.output}")
-
-
-def main():
+def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
     run_pipeline(args)
