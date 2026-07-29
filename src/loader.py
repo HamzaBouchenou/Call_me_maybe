@@ -40,8 +40,8 @@ def load_functions_definition(path: str) -> list[FunctionDef]:
 
         try:
             func = FunctionDef.model_validate(item)
-        except ValidationError:
-            raise InputError("Invalid function definition found")
+        except ValidationError as e:
+            raise InputError(f"Invalid function definition found : {e}") from e
         if func.name in current_names:
             raise InputError(f"Function: {func.name} stated more than once.")
         current_names.add(func.name)
@@ -74,8 +74,8 @@ def load_prompts(path: str) -> list[Prompt]:
 
         try:
             prompt = Prompt.model_validate(item)
-        except ValidationError:
-            raise InputError(f"Invalid prompt found at index {i}")
+        except ValidationError as e:
+            raise InputError(f"Invalid prompt found at index {i}: {e}") from e
 
         parsed_prompts.append(prompt)
     return parsed_prompts

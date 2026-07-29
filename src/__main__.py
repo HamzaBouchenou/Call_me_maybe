@@ -34,7 +34,7 @@ def run_pipeline(args: argparse.Namespace):
         functions = load_functions_definition(args.functions_definition)
         prompts = load_prompts(args.input)
     except InputError as e:
-        print(f"Caught an Error: {e}")
+        print(f"Caught a parsing error: {e}")
         return
 
     instructions = build_prompt(functions)
@@ -58,9 +58,8 @@ def run_pipeline(args: argparse.Namespace):
             results.append(result)
             print(f"{result}")
         except Exception as e:
-            print(f"failed on : {pt.prompt!r}: {e}")
-
-
+            print(f"Caught error while processing : {pt.prompt}: {e}")
+            continue
 
     elapsed = time.time() - start_time
     print(f"\nProcessed {len(prompts)} prompts in {elapsed:.2f}s ")
