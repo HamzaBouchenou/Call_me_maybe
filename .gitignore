@@ -1,4 +1,4 @@
 .venv/
-/data/output
+/data/output/
 __pycache__/
 *.pyc
