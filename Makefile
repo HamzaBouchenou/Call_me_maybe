@@ -1,7 +1,7 @@
 .PHONY: install run debug clean lint lint-strict
 
 install:
-	python3 -m pip install uv
+	command -v uv >/dev/null 2>&1 || python3 -m pip install --user uv
 	uv sync
 
 run:
