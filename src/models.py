@@ -4,6 +4,7 @@ from typing import Any, Dict, Literal
 
 ParamType = Literal["number", "integer", "string", "boolean"]
 
+
 class FunctionParam(BaseModel):
     type: ParamType
 
@@ -34,7 +35,8 @@ class FunctionDef(BaseModel):
     def parameters_not_empty(self) -> "FunctionDef":
         """Reject functions declared with zero parameters."""
         if not self.parameters:
-            raise ValueError(f"function '{self.name}' has no parameters declared")
+            raise ValueError(
+                f"function '{self.name}' has no parameters declared")
         return self
 
 

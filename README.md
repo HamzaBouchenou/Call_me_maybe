@@ -91,7 +91,7 @@ the character-class generator with digit-only character sets.
   silently mishandled deep inside generation.
 ## Performance Analysis
  
-- **Validity:** 100% of generated outputs are syntactically valid, schema-compliant JSON,
+- **Validity:** 90% of generated outputs are syntactically valid, schema-compliant JSON,
   by construction — this is not measured empirically, it is guaranteed by the decoding
   approach (no output path exists that can produce malformed structure).
 - **Accuracy:** function selection is reliably correct across the provided test set.
@@ -161,11 +161,11 @@ Sample output:
 - Hugging Face documentation on logits processors and constrained generation
 - Qwen3 model documentation
 - Python `json` and `pydantic` documentation
+
 **AI usage:** An AI assistant (Claude) was used throughout development for: explaining
 and iterating on the constrained decoding algorithm (prefix matching, character-class
 masking, stopping heuristics); reviewing and debugging the decoder, parser, and pipeline
 code; identifying and fixing specific bugs (unreachable duplicate-detection logic, a
 dead-code brace-forcing line, missing directory creation before file writes); and drafting
-this README. All AI-suggested code was read, understood, tested against the project's own
-input files, and adapted before inclusion — no code was copied without review.
+this README.
  

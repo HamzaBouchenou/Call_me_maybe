@@ -1,7 +1,7 @@
 """Constrained decoding: force known JSON structure, let the model choose
 only between reachable options at each step."""
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, cast, Callable
 from llm_sdk import Small_LLM_Model
 from .models import FunctionDef, FunctionParam
 
@@ -10,7 +10,7 @@ def load_vocab(model: Small_LLM_Model) -> Dict[str, int]:
     """Load token string -> token id mapping from the model's vocab file."""
     import json
     with open(model.get_path_to_vocab_file(), encoding="utf-8") as f:
-        return json.load(f)
+        return cast(Dict[str, int], json.load(f))
 
 
 def build_id_to_token(vocab: Dict[str, int]) -> Dict[int, str]:
@@ -22,7 +22,7 @@ def build_id_to_token(vocab: Dict[str, int]) -> Dict[int, str]:
 def encode_text(model: Small_LLM_Model, text: str) -> List[int]:
     """Encode literal text to a flat list of token ids."""
     ids = model.encode(text)
-    return ids[0].tolist()
+    return cast(List[int], ids[0].tolist())
 
 
 def _pick(model: Small_LLM_Model, ids: List[int], valid: set) -> int:
@@ -30,7 +30,7 @@ def _pick(model: Small_LLM_Model, ids: List[int], valid: set) -> int:
     if not valid:
         raise RuntimeError("No valid token ids at this generation step.")
     logits = model.get_logits_from_input_ids(ids)
-    return max(valid, key=lambda tid: logits[tid])
+    return cast(int, max(valid, key=lambda tid: logits[tid]))
 
 
 def generate_constrained_choice(
@@ -59,7 +59,7 @@ def generate_constrained_text(
     model: Small_LLM_Model,
     id_to_token: Dict[int, str],
     ids: List[int],
-    char_ok,
+    char_ok: Callable[[str], bool],
     stop_chars: set,
     quoted: bool,
     max_len: int = 100,

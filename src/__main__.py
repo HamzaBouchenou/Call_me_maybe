@@ -9,7 +9,7 @@ import time
 import os
 
 
-def build_parser():
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Introduction to function "
                                      "calling in LLms.")
 
@@ -29,7 +29,7 @@ def build_parser():
     return parser
 
 
-def run_pipeline(args: argparse.Namespace):
+def run_pipeline(args: argparse.Namespace) -> None:
     try:
         functions = load_functions_definition(args.functions_definition)
         prompts = load_prompts(args.input)
@@ -77,7 +77,7 @@ def run_pipeline(args: argparse.Namespace):
     except TypeError:
         print("Could not serialize results to JSON")
         return
-   
+
 
 def main() -> None:
     parser = build_parser()

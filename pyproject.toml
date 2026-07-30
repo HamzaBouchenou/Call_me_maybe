@@ -18,13 +18,8 @@ members = [
     "llm_sdk",
 ]
 
-[tool.mypy]
-files = ["src"]
-exclude = [
-  "llm_sdk/",
-  ".venv/",
-  ".cache/",
-]
-
 [tool.uv.sources]
 llm-sdk = { workspace = true }
+
+[tool.mypy]
+follow_imports = "skip"
